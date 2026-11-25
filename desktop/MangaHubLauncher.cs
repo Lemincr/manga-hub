@@ -9,8 +9,11 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Manga Hub")]
-[assembly: AssemblyProduct("Manga Hub Desktop")]
-[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyDescription("Local desktop tracker and chapter reader for manga, manhwa, and manhua")]
+[assembly: AssemblyProduct("Manga Hub")]
+[assembly: AssemblyCompany("Manga Hub")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
 
 namespace MangaHubDesktop
 {
@@ -33,19 +36,23 @@ namespace MangaHubDesktop
             int port = 3001;
             string url = "http://127.0.0.1:" + port;
 
-            if (!EnsureBackendRunning(appDir, dataDir, port, url, 15000))
+            if (!IsServerAlive(url))
             {
-                MessageBox.Show(
-                    "Manga Hub backend did not respond on " + url + ".\nEnsure dependencies are installed (npm install) and client is built (npm run build).\nSee data\\server.log for details.",
-                    "Manga Hub — Startup Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
-                KillBackend();
-                return;
+                string startErr;
+                if (!EnsureBackendRunning(appDir, dataDir, port, url, 15000, out startErr))
+                {
+                    MessageBox.Show(
+                        startErr,
+                        "Manga Hub — Startup Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error
+                    );
+                    KillBackend();
+                    return;
+                }
             }
 
-            // Background watchdog: if the Node backend ever exits or is killed while the app window is open, restart it automatically
+            // Background watchdog: automatically restarts the local backend if it stops while the window is open
             var watchdog = new Thread(() =>
             {
                 while (!shuttingDown)
@@ -54,7 +61,8 @@ namespace MangaHubDesktop
                     if (shuttingDown) break;
                     if (!IsServerAlive(url))
                     {
-                        EnsureBackendRunning(appDir, dataDir, port, url, 8000);
+                        string ignored;
+                        EnsureBackendRunning(appDir, dataDir, port, url, 8000, out ignored);
                     }
                 }
             })
@@ -64,7 +72,7 @@ namespace MangaHubDesktop
             };
             watchdog.Start();
 
-            Process uiProc = LaunchAppWindow(url);
+            Process uiProc = LaunchAppWindow(url, dataDir);
             if (uiProc != null)
             {
                 try { uiProc.WaitForExit(); } catch { }
@@ -79,15 +87,105 @@ namespace MangaHubDesktop
             KillBackend();
         }
 
-        static bool EnsureBackendRunning(string appDir, string dataDir, int port, string url, int timeoutMs)
+        static bool EnsureBackendRunning(string appDir, string dataDir, int port, string url, int timeoutMs, out string errorMsg)
         {
+            errorMsg = "";
             lock (procLock)
             {
                 if (IsServerAlive(url)) return true;
                 KillBackend();
-                serverProc = StartBackend(appDir, dataDir, port);
-                return WaitForServer(url, timeoutMs);
+
+                string nodeExe = FindNodeExe();
+                if (nodeExe == null)
+                {
+                    errorMsg =
+                        "Node.js (v22.13 or newer) was not found on this PC.\n\n" +
+                        "Please install the LTS version from https://nodejs.org/ and launch MangaHub.exe again.";
+                    return false;
+                }
+
+                string bundlePath = Path.Combine(appDir, "dist", "server.mjs");
+                string rootBundlePath = Path.Combine(appDir, "server.mjs");
+                string tsxCli = Path.Combine(appDir, "node_modules", "tsx", "dist", "cli.mjs");
+                string tsEntry = Path.Combine(appDir, "server", "index.ts");
+
+                string serverArgs;
+                if (File.Exists(bundlePath))
+                {
+                    serverArgs = "\"" + bundlePath + "\"";
+                }
+                else if (File.Exists(rootBundlePath))
+                {
+                    serverArgs = "\"" + rootBundlePath + "\"";
+                }
+                else if (File.Exists(tsxCli) && File.Exists(tsEntry))
+                {
+                    serverArgs = "\"" + tsxCli + "\" \"" + tsEntry + "\"";
+                }
+                else
+                {
+                    errorMsg =
+                        "Manga Hub application files were not found next to MangaHub.exe.\n\n" +
+                        "Make sure you extracted the entire MangaHub release .zip folder (including dist\\ and client\\) before running MangaHub.exe.";
+                    return false;
+                }
+
+                string clientDist = Path.Combine(appDir, "client", "dist", "index.html");
+                if (!File.Exists(clientDist))
+                {
+                    errorMsg =
+                        "Web interface files (client\\dist) are missing next to MangaHub.exe.\n\n" +
+                        "Please re-extract the full MangaHub release .zip folder.";
+                    return false;
+                }
+
+                serverProc = StartBackend(nodeExe, serverArgs, appDir, dataDir, port);
+                if (WaitForServer(url, timeoutMs)) return true;
+
+                string tail = ReadLastLogLines(Path.Combine(dataDir, "server.log"), 8);
+                errorMsg = "Manga Hub backend did not respond on " + url + "." +
+                    (string.IsNullOrEmpty(tail) ? "" : "\n\nRecent log (data\\server.log):\n" + tail);
+                return false;
             }
+        }
+
+        static string FindNodeExe()
+        {
+            string pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
+            foreach (string dir in pathEnv.Split(';'))
+            {
+                if (string.IsNullOrWhiteSpace(dir)) continue;
+                try
+                {
+                    string candidate = Path.Combine(dir.Trim(), "node.exe");
+                    if (File.Exists(candidate)) return candidate;
+                }
+                catch { }
+            }
+            string[] common = {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"nodejs\node.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"nodejs\node.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\nodejs\node.exe"),
+                Path.Combine(Environment.GetEnvironmentVariable("NVM_SYMLINK") ?? "", "node.exe"),
+                Path.Combine(Environment.GetEnvironmentVariable("VOLTA_HOME") ?? "", @"bin\node.exe"),
+            };
+            foreach (string c in common)
+            {
+                if (!string.IsNullOrEmpty(c) && File.Exists(c)) return c;
+            }
+            return null;
+        }
+
+        static string ReadLastLogLines(string logFile, int count)
+        {
+            try
+            {
+                if (!File.Exists(logFile)) return "";
+                string[] lines = File.ReadAllLines(logFile);
+                int start = Math.Max(0, lines.Length - count);
+                return string.Join("\n", lines, start, lines.Length - start);
+            }
+            catch { return ""; }
         }
 
         static bool IsServerAlive(string url)
@@ -110,20 +208,18 @@ namespace MangaHubDesktop
             {
                 if (IsServerAlive(url)) return true;
                 if (serverProc != null && serverProc.HasExited) return false;
-                Thread.Sleep(250);
+                Thread.Sleep(200);
             }
             return false;
         }
 
-        static Process StartBackend(string appDir, string dataDir, int port)
+        static Process StartBackend(string nodeExe, string serverArgs, string appDir, string dataDir, int port)
         {
-            string tsxCli = Path.Combine(appDir, "node_modules", "tsx", "dist", "cli.mjs");
-            string entry = Path.Combine(appDir, "server", "index.ts");
             string logFile = Path.Combine(dataDir, "server.log");
             var psi = new ProcessStartInfo
             {
-                FileName = "node",
-                Arguments = "\"" + tsxCli + "\" \"" + entry + "\"",
+                FileName = nodeExe,
+                Arguments = serverArgs,
                 WorkingDirectory = appDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -171,11 +267,11 @@ namespace MangaHubDesktop
             return null;
         }
 
-        static Process LaunchAppWindow(string url)
+        static Process LaunchAppWindow(string url, string dataDir)
         {
             string browser = FindChromiumBrowser();
             if (browser == null) return null;
-            string profileDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "desktop-profile");
+            string profileDir = Path.Combine(dataDir, "desktop-profile");
             Directory.CreateDirectory(profileDir);
             var psi = new ProcessStartInfo
             {
