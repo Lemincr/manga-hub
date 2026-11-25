@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build:exe
+      - name: Package release archive
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag -or $tag -eq "main") { $tag = "v1.0.0" }
+          New-Item -ItemType Directory -Force stage/MangaHub | Out-Null
+          Copy-Item MangaHub.exe stage/MangaHub/
+          Copy-Item package.json, package-lock.json, README.md, LICENSE stage/MangaHub/
+          Copy-Item -Recurse server, client, desktop stage/MangaHub/
+          Compress-Archive -Path stage/MangaHub/* -DestinationPath "MangaHub-$tag-win64.zip" -Force
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            MangaHub-*.zip
+            MangaHub.exe
+          generate_release_notes: true
