@@ -1,7 +1,7 @@
 # Manga Hub
 A local Windows desktop tracker and chapter reader for manga, manhwa, and manhua.
 
-**Note:** Manga Hub requires **[Node.js 22.13+](https://nodejs.org/)** installed on your PC. Prebuilt packages are available on the **[latest release](../../releases/latest)** page.
+**Note:** Manga Hub requires **[Node.js 22.13+](https://nodejs.org/)** installed on your PC. Ready-to-run Windows packages are on the **[latest release](../../releases/latest)** page.
 
 <p align="center">
   <img src="client/public/icon.svg" width="96" height="96" alt="Manga Hub" />
@@ -14,14 +14,15 @@ Manga Hub currently includes:
 - **Local SQLite Storage:** All bookmarks, chapters, and reading progress stay in `data/manga.db` on your machine, with one-click JSON export and import.
 
 ### [Download Latest Release](../../releases/latest)
-Download the latest `MangaHub-v1.0.0-win64.zip` from **[Releases](../../releases/latest)**, extract it anywhere on your PC, and run `MangaHub.exe`.
+1. Download **`MangaHub-v1.0.0-win64.zip`** from **[Releases](../../releases/latest)**.
+2. Extract the full folder anywhere on your PC and double-click **`MangaHub.exe`** (no terminal commands or `npm install` needed).
+   *(Note: Windows SmartScreen may show a warning on first launch because the executable is self-signed rather than signed by a paid commercial certificate—click **More info → Run anyway**.)*
 
 ### Building from Source
-To build and launch Manga Hub from a local clone:
+To build the portable release package from a local clone:
 ```powershell
 npm install
 npm run build:exe
-.\MangaHub.exe
 ```
 
 ---
