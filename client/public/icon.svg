@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E1B4B"/>
+      <stop offset="50%" stop-color="#4C1D95"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="60" y1="56" x2="196" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F5F3FF"/>
+      <stop offset="100%" stop-color="#DDD6FE"/>
+    </linearGradient>
+    <linearGradient id="bookmark" x1="128" y1="48" x2="176" y2="148" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C084FC"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+  </defs>
+  <!-- Squircle Container -->
+  <rect x="14" y="14" width="228" height="228" rx="54" fill="url(#bg)" stroke="#A78BFA" stroke-opacity="0.35" stroke-width="6"/>
+  <!-- Subtle inner panel frame -->
+  <rect x="34" y="34" width="188" height="188" rx="38" stroke="#DDD6FE" stroke-opacity="0.14" stroke-width="3"/>
+  <!-- Left manga page -->
+  <path d="M56 76C56 67.163 63.163 60 72 60H116C122.627 60 128 65.373 128 72V192C128 186.477 122.627 182 116 182H72C63.163 182 56 174.837 56 166V76Z" fill="url(#accent)"/>
+  <!-- Right manga page -->
+  <path d="M200 76C200 67.163 192.837 60 184 60H140C133.373 60 128 65.373 128 72V192C128 186.477 133.373 182 140 182H184C192.837 182 200 174.837 200 166V76Z" fill="#EDE9FE" fill-opacity="0.92"/>
+  <!-- Manga panel lines on left page -->
+  <rect x="70" y="78" width="44" height="32" rx="5" fill="#4C1D95" fill-opacity="0.82"/>
+  <rect x="70" y="118" width="44" height="46" rx="5" fill="#6D28D9" fill-opacity="0.72"/>
+  <!-- Action diagonal slash on right page -->
+  <path d="M142 124H186V164H142V124Z" rx="5" fill="#5B21B6" fill-opacity="0.65"/>
+  <!-- Floating Bookmark Ribbon -->
+  <path d="M150 46H182V118L166 105L150 118V46Z" fill="url(#bookmark)"/>
+  <!-- Bottom spine glow -->
+  <path d="M84 198C100 191 118 191 128 198C138 191 156 191 172 198" stroke="#C4B5FD" stroke-width="7" stroke-linecap="round"/>
+</svg>
